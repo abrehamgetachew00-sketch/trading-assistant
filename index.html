@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Trading Assistant</title>
+    <title>AI Trading Assistant - Buy/Sell Signals</title>
     <style>
         * {
             margin: 0;
@@ -13,7 +13,7 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -28,7 +28,7 @@
         }
         
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             color: white;
             padding: 30px;
             text-align: center;
@@ -49,7 +49,7 @@
         }
         
         .upload-area {
-            border: 2px dashed #667eea;
+            border: 2px dashed #2a5298;
             border-radius: 10px;
             padding: 40px;
             text-align: center;
@@ -59,12 +59,12 @@
         }
         
         .upload-area:hover {
-            border-color: #764ba2;
+            border-color: #1e3c72;
             background: #f0f2ff;
         }
         
         .upload-area.drag-over {
-            border-color: #764ba2;
+            border-color: #1e3c72;
             background: #e8ebff;
         }
         
@@ -91,7 +91,7 @@
         }
         
         .analyze-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             color: white;
             border: none;
             padding: 15px 40px;
@@ -107,10 +107,6 @@
             transform: translateY(-2px);
         }
         
-        .analyze-btn:active {
-            transform: translateY(0);
-        }
-        
         .loading {
             display: none;
             text-align: center;
@@ -119,7 +115,7 @@
         
         .spinner {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border-top: 4px solid #2a5298;
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -132,26 +128,79 @@
             100% { transform: rotate(360deg); }
         }
         
-        .results {
+        .decision-card {
             margin-top: 30px;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            display: none;
+            animation: slideIn 0.5s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .decision-card.buy {
+            background: linear-gradient(135deg, #00b09b, #96c93d);
+            color: white;
+        }
+        
+        .decision-card.sell {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+        
+        .decision-card.hold {
+            background: linear-gradient(135deg, #a8a8a8, #6c6c6c);
+            color: white;
+        }
+        
+        .decision-emoji {
+            font-size: 64px;
+            margin-bottom: 10px;
+        }
+        
+        .decision-text {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .confidence {
+            font-size: 20px;
+            margin-top: 10px;
+            opacity: 0.95;
+        }
+        
+        .details {
+            margin-top: 20px;
             padding: 20px;
             background: #f8f9ff;
             border-radius: 10px;
             display: none;
         }
         
-        .results h3 {
-            color: #667eea;
+        .details h3 {
+            color: #1e3c72;
             margin-bottom: 15px;
         }
         
         .analysis-content {
             line-height: 1.6;
             color: #333;
+            text-align: left;
         }
         
         .analysis-content h1, .analysis-content h2, .analysis-content h3 {
-            color: #667eea;
+            color: #1e3c72;
             margin-top: 15px;
         }
         
@@ -160,7 +209,7 @@
         }
         
         .analysis-content strong {
-            color: #764ba2;
+            color: #2a5298;
         }
         
         .error {
@@ -181,9 +230,27 @@
             color: #856404;
         }
         
+        .reset-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        
+        .reset-btn:hover {
+            background: #5a6268;
+        }
+        
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 1.8em;
+            }
+            
+            .decision-text {
+                font-size: 32px;
             }
             
             .content {
@@ -196,7 +263,7 @@
     <div class="container">
         <div class="header">
             <h1>🤖 AI Trading Assistant</h1>
-            <p>Your Personal Technical Analysis Expert</p>
+            <p>Get Clear BUY / SELL Signals from Your Charts</p>
         </div>
         
         <div class="content">
@@ -209,25 +276,32 @@
             
             <div class="preview-container" id="previewContainer">
                 <img id="previewImage" alt="Chart preview">
-                <button class="analyze-btn" id="analyzeBtn">🔍 Analyze Chart</button>
+                <button class="analyze-btn" id="analyzeBtn">🔍 Get Trading Signal</button>
+                <button class="reset-btn" id="resetBtn" style="display: none;">📁 Upload Another Chart</button>
             </div>
             
             <div class="loading" id="loading">
                 <div class="spinner"></div>
-                <p style="margin-top: 10px;">Analyzing chart patterns...</p>
+                <p style="margin-top: 10px;">AI is analyzing chart patterns...</p>
             </div>
             
-            <div class="results" id="results">
-                <h3>📈 Trading Analysis Report</h3>
+            <div class="decision-card" id="decisionCard">
+                <div class="decision-emoji" id="decisionEmoji"></div>
+                <div class="decision-text" id="decisionText"></div>
+                <div class="confidence" id="confidence"></div>
+            </div>
+            
+            <div class="details" id="details">
+                <h3>📈 Detailed Analysis</h3>
                 <div class="analysis-content" id="analysisContent"></div>
             </div>
             
             <div class="error" id="error"></div>
             
             <div class="disclaimer">
-                ⚠️ <strong>Disclaimer:</strong> This AI assistant provides technical analysis based on chart patterns. 
-                This is not financial advice. Always do your own research and consult with a qualified financial advisor 
-                before making trading decisions. Trading involves substantial risk of loss.
+                ⚠️ <strong>Disclaimer:</strong> This AI provides technical analysis but NOT financial advice. 
+                Trading involves substantial risk. Always do your own research and consult with financial advisors.
+                Past performance does not guarantee future results.
             </div>
         </div>
     </div>
@@ -238,8 +312,13 @@
         const previewContainer = document.getElementById('previewContainer');
         const previewImage = document.getElementById('previewImage');
         const analyzeBtn = document.getElementById('analyzeBtn');
+        const resetBtn = document.getElementById('resetBtn');
         const loading = document.getElementById('loading');
-        const results = document.getElementById('results');
+        const decisionCard = document.getElementById('decisionCard');
+        const decisionEmoji = document.getElementById('decisionEmoji');
+        const decisionText = document.getElementById('decisionText');
+        const confidenceSpan = document.getElementById('confidence');
+        const details = document.getElementById('details');
         const analysisContent = document.getElementById('analysisContent');
         const errorDiv = document.getElementById('error');
         
@@ -281,11 +360,25 @@
                 previewImage.src = e.target.result;
                 previewContainer.style.display = 'block';
                 uploadArea.style.display = 'none';
-                results.style.display = 'none';
+                decisionCard.style.display = 'none';
+                details.style.display = 'none';
                 errorDiv.style.display = 'none';
+                analyzeBtn.style.display = 'inline-block';
+                resetBtn.style.display = 'none';
             };
             reader.readAsDataURL(file);
         }
+        
+        resetBtn.addEventListener('click', () => {
+            currentFile = null;
+            previewContainer.style.display = 'none';
+            uploadArea.style.display = 'block';
+            decisionCard.style.display = 'none';
+            details.style.display = 'none';
+            errorDiv.style.display = 'none';
+            imageInput.value = '';
+            analyzeBtn.style.display = 'none';
+        });
         
         analyzeBtn.addEventListener('click', async () => {
             if (!currentFile) return;
@@ -295,7 +388,8 @@
             
             loading.style.display = 'block';
             analyzeBtn.disabled = true;
-            results.style.display = 'none';
+            decisionCard.style.display = 'none';
+            details.style.display = 'none';
             errorDiv.style.display = 'none';
             
             try {
@@ -307,14 +401,44 @@
                 const data = await response.json();
                 
                 if (data.success) {
+                    // Show decision card
+                    let emoji, bgClass;
+                    if (data.decision === 'BUY') {
+                        emoji = '🟢';
+                        bgClass = 'buy';
+                    } else if (data.decision === 'SELL') {
+                        emoji = '🔴';
+                        bgClass = 'sell';
+                    } else {
+                        emoji = '⚪';
+                        bgClass = 'hold';
+                    }
+                    
+                    decisionEmoji.textContent = emoji;
+                    decisionText.textContent = `${data.decision} SIGNAL`;
+                    confidenceSpan.textContent = `Confidence: ${data.confidence}%`;
+                    
+                    decisionCard.className = `decision-card ${bgClass}`;
+                    decisionCard.style.display = 'block';
+                    
+                    // Show detailed analysis
                     analysisContent.innerHTML = data.formatted_analysis;
-                    results.style.display = 'block';
+                    details.style.display = 'block';
+                    
+                    // Show reset button
+                    analyzeBtn.style.display = 'none';
+                    resetBtn.style.display = 'inline-block';
+                    
+                    // Scroll to decision
+                    decisionCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 } else {
                     throw new Error(data.error);
                 }
             } catch (error) {
                 errorDiv.textContent = 'Error: ' + error.message;
                 errorDiv.style.display = 'block';
+                analyzeBtn.style.display = 'inline-block';
+                resetBtn.style.display = 'none';
             } finally {
                 loading.style.display = 'none';
                 analyzeBtn.disabled = false;
