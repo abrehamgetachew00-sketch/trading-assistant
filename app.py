@@ -6,6 +6,7 @@ import google.generativeai as genai
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 import markdown
+import re
 
 load_dotenv()
 
@@ -24,31 +25,73 @@ class TradingAssistant:
         # Load and process image
         img = Image.open(image_path)
         
-        # System prompt for trading analysis
+        # System prompt for trading analysis with explicit buy/sell decision
         prompt = """
-        You are an expert technical analyst for trading. Analyze this chart screenshot and provide:
+        You are an expert technical analyst. Analyze this chart and provide a CLEAR TRADING DECISION.
         
-        1. CURRENT TREND: (Bullish/Bearish/Neutral)
-        2. KEY LEVELS: Support and Resistance levels
-        3. PATTERN RECOGNITION: Any chart patterns (Head & Shoulders, Double Top/Bottom, Flags, etc.)
-        4. TECHNICAL INDICATORS (if visible): RSI, MACD, Moving Averages
-        5. ACTIONABLE RECOMMENDATION: 
-           - BUY at what price level with stop loss
-           - SELL at what price level with stop loss
-           - Or HOLD with reasoning
-        6. RISK ASSESSMENT: High/Medium/Low with explanation
-        7. CONFIDENCE SCORE: (0-100%)
+        YOU MUST CHOOSE ONE AND ONLY ONE OF THESE ACTIONS:
+        🟢 BUY - If the chart shows bullish signals
+        🔴 SELL - If the chart shows bearish signals  
+        ⚪ HOLD/WAIT - If the market is indecisive or unclear
         
-        Be specific with price levels if visible. Provide conservative, risk-aware advice.
+        FORMAT YOUR RESPONSE EXACTLY LIKE THIS:
+        
+        ========================================
+        🎯 TRADING DECISION: [BUY/SELL/HOLD]
+        ========================================
+        
+        CONFIDENCE: [0-100]%
+        
+        📊 ENTRY LEVEL: [price or "Not visible"]
+        🛑 STOP LOSS: [price or "Not visible"]
+        🎯 TAKE PROFIT: [price or "Not visible"]
+        
+        📈 REASONS TO [BUY/SELL/HOLD]:
+        • Reason 1
+        • Reason 2
+        • Reason 3
+        
+        ⚠️ RISK LEVEL: [HIGH/MEDIUM/LOW]
+        
+        💡 ADDITIONAL INSIGHTS:
+        • Support: [levels]
+        • Resistance: [levels]
+        • Pattern: [pattern name if visible]
+        
+        BE DECISIVE. No wishy-washy language. Give a clear actionable signal.
         """
         
         response = self.model.generate_content([prompt, img])
         return response.text
     
-    def validate_recommendation(self, analysis_text):
-        """Extract structured recommendations from analysis"""
+    def extract_decision(self, analysis_text):
+        """Extract the explicit trading decision from analysis"""
+        
+        # Look for BUY/SELL/HOLD in the text
+        decision = "HOLD"  # default
+        if "TRADING DECISION: BUY" in analysis_text or "DECISION: BUY" in analysis_text:
+            decision = "BUY"
+        elif "TRADING DECISION: SELL" in analysis_text or "DECISION: SELL" in analysis_text:
+            decision = "SELL"
+        elif "TRADING DECISION: HOLD" in analysis_text or "DECISION: HOLD" in analysis_text:
+            decision = "HOLD"
+            
+        # Also check for emoji indicators
+        if "🟢" in analysis_text and "BUY" in analysis_text.upper():
+            decision = "BUY"
+        elif "🔴" in analysis_text and "SELL" in analysis_text.upper():
+            decision = "SELL"
+        elif "⚪" in analysis_text and "HOLD" in analysis_text.upper():
+            decision = "HOLD"
+            
+        # Extract confidence score
+        confidence_match = re.search(r'CONFIDENCE:\s*(\d+)', analysis_text)
+        confidence = confidence_match.group(1) if confidence_match else "N/A"
+        
         return {
-            "raw_analysis": analysis_text,
+            "decision": decision,
+            "confidence": confidence,
+            "full_analysis": analysis_text,
             "formatted": markdown.markdown(analysis_text)
         }
 
@@ -74,14 +117,16 @@ def analyze():
         
         # Analyze chart
         analysis = assistant.analyze_chart(temp_path)
-        structured = assistant.validate_recommendation(analysis)
+        structured = assistant.extract_decision(analysis)
         
         # Clean up
         os.remove(temp_path)
         
         return jsonify({
             'success': True,
-            'analysis': structured['raw_analysis'],
+            'decision': structured['decision'],
+            'confidence': structured['confidence'],
+            'analysis': structured['full_analysis'],
             'formatted_analysis': structured['formatted']
         })
         
